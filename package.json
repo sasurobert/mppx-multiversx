@@ -1,7 +1,9 @@
 {
   "name": "mppx-multiversx",
   "version": "1.0.0",
-  "description": "",
+  "description": "MPP MultiversX SDK - Spec-compliant Mobile Payment Protocol integration for MultiversX",
+  "author": "MultiversX",
+  "license": "MIT",
   "main": "index.js",
   "type": "module",
   "exports": {
