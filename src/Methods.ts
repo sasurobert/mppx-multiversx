@@ -60,3 +60,85 @@ export const charge = Method.from({
     ),
   },
 })
+
+export const session = Method.from({
+  name: 'multiversx',
+  intent: 'session',
+  schema: {
+    credential: {
+      payload: z.object({
+        externalId: z.optional(z.string()),
+        txHash: z.string(),
+        sender: z.string(),
+      }),
+    },
+    request: z.pipe(
+      z.object({
+        amount: z.amount(),
+        decimals: z.optional(z.number()),
+        currency: z.string(),
+        duration: z.string(),
+        description: z.optional(z.string()),
+        externalId: z.optional(z.string()),
+        metadata: z.optional(z.record(z.string(), z.string())),
+        chainId: z.optional(z.string()),
+        recipient: z.string(),
+      }),
+      z.transform((data: any) => {
+        const { amount, decimals = 18, metadata, chainId = 'D', currency, duration, ...rest } = data
+        return {
+          ...rest,
+          amount: parseUnits(amount, decimals).toString(),
+          currency,
+          duration,
+          methodDetails: {
+            chainId,
+            decimals,
+            ...(metadata !== undefined && { metadata }),
+          },
+        }
+      }),
+    ),
+  },
+})
+
+export const subscription = Method.from({
+  name: 'multiversx',
+  intent: 'subscription',
+  schema: {
+    credential: {
+      payload: z.object({
+        externalId: z.optional(z.string()),
+        txHash: z.string(),
+        sender: z.string(),
+      }),
+    },
+    request: z.pipe(
+      z.object({
+        amount: z.amount(),
+        decimals: z.optional(z.number()),
+        currency: z.string(),
+        interval: z.string(),
+        description: z.optional(z.string()),
+        externalId: z.optional(z.string()),
+        metadata: z.optional(z.record(z.string(), z.string())),
+        chainId: z.optional(z.string()),
+        recipient: z.string(),
+      }),
+      z.transform((data: any) => {
+        const { amount, decimals = 18, metadata, chainId = 'D', currency, interval, ...rest } = data
+        return {
+          ...rest,
+          amount: parseUnits(amount, decimals).toString(),
+          currency,
+          interval,
+          methodDetails: {
+            chainId,
+            decimals,
+            ...(metadata !== undefined && { metadata }),
+          },
+        }
+      }),
+    ),
+  },
+})
