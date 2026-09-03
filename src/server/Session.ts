@@ -21,38 +21,71 @@ export function session<const parameters extends session.Parameters>(parameters:
     async verify({ credential }) {
       const { challenge } = credential
       const parsed = Methods.session.schema.credential.payload.safeParse(credential.payload)
-      if (!parsed.success) throw new Error('Invalid credential payload: missing txHash or sender')
-      const { txHash, sender, externalId: credentialExternalId } = parsed.data as {
-        txHash: string
-        sender: string
-        externalId?: string
-      }
+      if (!parsed.success) throw new Error('Invalid credential payload')
 
-      const result = await verifyTransaction({
-        txHash,
-        sender,
-        challengeId: challenge.id,
-        amount: challenge.request.amount as string,
-        currency: challenge.request.currency as string,
-        duration: challenge.request.duration as string,
-        source: credential.source,
-        opaque: challenge.opaque,
-        digest: challenge.digest,
-      })
+      const payload = parsed.data as any
+      const isVoucher = Boolean(payload.channelId && payload.signature)
 
-      if (!result.success) {
-        throw new Errors.VerificationFailedError({
-          reason: result.error ?? 'MultiversX Transaction verification failed',
+      if (isVoucher && parameters.verifyVoucher) {
+        const result = await parameters.verifyVoucher({
+          channelId: payload.channelId,
+          employer: payload.employer,
+          amount: payload.amount,
+          nonce: payload.nonce,
+          signature: payload.signature,
+          sender: payload.sender ?? payload.employer,
+          challengeId: challenge.id,
+          source: credential.source,
+          opaque: challenge.opaque,
+          digest: challenge.digest,
         })
+
+        if (!result.success) {
+          throw new Errors.VerificationFailedError({
+            reason: result.error ?? 'MultiversX Voucher verification failed',
+          })
+        }
+
+        return {
+          method: 'multiversx',
+          status: 'success',
+          timestamp: new Date().toISOString(),
+          reference: payload.channelId,
+          ...(payload.externalId ? { externalId: payload.externalId } : {}),
+        } as const
       }
 
-      return {
-        method: 'multiversx',
-        status: 'success',
-        timestamp: new Date().toISOString(),
-        reference: txHash,
-        ...(credentialExternalId ? { externalId: credentialExternalId } : {}),
-      } as const
+      if (parameters.verifyTransaction) {
+        const txHash = payload.txHash ?? ''
+        const sender = payload.sender ?? payload.employer ?? ''
+        const result = await parameters.verifyTransaction({
+          txHash,
+          sender,
+          challengeId: challenge.id,
+          amount: challenge.request.amount as string,
+          currency: challenge.request.currency as string,
+          duration: challenge.request.duration as string,
+          source: credential.source,
+          opaque: challenge.opaque,
+          digest: challenge.digest,
+        })
+
+        if (!result.success) {
+          throw new Errors.VerificationFailedError({
+            reason: result.error ?? 'MultiversX Transaction verification failed',
+          })
+        }
+
+        return {
+          method: 'multiversx',
+          status: 'success',
+          timestamp: new Date().toISOString(),
+          reference: txHash,
+          ...(payload.externalId ? { externalId: payload.externalId } : {}),
+        } as const
+      }
+
+      throw new Error('No appropriate verifier provided for credential payload')
     },
   })
 }
@@ -61,13 +94,25 @@ export declare namespace session {
   type Defaults = Omit<Method.RequestDefaults<typeof Methods.session>, 'recipient'>
 
   type Parameters = {
-    verifyTransaction: (parameters: {
+    verifyTransaction?: (parameters: {
       txHash: string
       sender: string
       challengeId: string
       amount: string
       currency: string
       duration: string
+      source?: string | undefined
+      opaque?: Record<string, string> | undefined
+      digest?: string | undefined
+    }) => Promise<{ success: boolean; error?: string }>
+    verifyVoucher?: (parameters: {
+      channelId: string
+      employer: string
+      amount: string
+      nonce: number | string
+      signature: string
+      sender?: string
+      challengeId: string
       source?: string | undefined
       opaque?: Record<string, string> | undefined
       digest?: string | undefined

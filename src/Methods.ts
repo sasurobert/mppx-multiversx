@@ -66,11 +66,23 @@ export const session = Method.from({
   intent: 'session',
   schema: {
     credential: {
-      payload: z.object({
-        externalId: z.optional(z.string()),
-        txHash: z.string(),
-        sender: z.string(),
-      }),
+      payload: z.union([
+        z.object({
+          txHash: z.string(),
+          sender: z.string(),
+          externalId: z.optional(z.string()),
+        }),
+        z.object({
+          channelId: z.string(),
+          employer: z.string(),
+          amount: z.string(),
+          nonce: z.union([z.number(), z.string()]),
+          signature: z.string(),
+          txHash: z.optional(z.string()),
+          sender: z.optional(z.string()),
+          externalId: z.optional(z.string()),
+        }),
+      ]),
     },
     request: z.pipe(
       z.object({

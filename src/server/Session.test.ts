@@ -120,4 +120,51 @@ describe('server session intent', () => {
       expect(e.message).toContain('Amount mismatch')
     }
   })
+
+  it('should verify valid voucher credential when verifyVoucher is provided', async () => {
+    const mockVerifyVoucher = vi.fn().mockResolvedValue({ success: true })
+
+    const sessionMethod = session({
+      verifyVoucher: mockVerifyVoucher,
+      currency: 'EGLD',
+      duration: '3600',
+    })
+
+    const challenge = Challenge.from({
+      id: 'voucher-ch-1',
+      realm: 'example',
+      method: 'multiversx' as const,
+      intent: 'session' as const,
+      request: { amount: '1000', currency: 'EGLD', duration: '3600', recipient: 'erd1rec' },
+    })
+
+    const credential = Credential.from({
+      challenge,
+      payload: {
+        channelId: '0102030405060708010203040506070801020304050607080102030405060708',
+        employer: 'erd1employer',
+        amount: '1000',
+        nonce: 1,
+        signature: 'deadbeef',
+      },
+    })
+
+    const verification = await sessionMethod.verify({
+      credential,
+      request: { amount: '1000', currency: 'EGLD', duration: '3600', recipient: 'erd1rec' },
+    })
+
+    expect(mockVerifyVoucher).toHaveBeenCalledWith({
+      channelId: '0102030405060708010203040506070801020304050607080102030405060708',
+      employer: 'erd1employer',
+      amount: '1000',
+      nonce: 1,
+      signature: 'deadbeef',
+      sender: 'erd1employer',
+      challengeId: 'voucher-ch-1',
+    })
+
+    expect(verification.status).toBe('success')
+    expect(verification.reference).toBe('0102030405060708010203040506070801020304050607080102030405060708')
+  })
 })

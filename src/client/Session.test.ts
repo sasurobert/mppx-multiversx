@@ -88,4 +88,52 @@ describe('client session intent', () => {
     expect(credential.payload.externalId).toBe('session-42')
     expect(credential.payload.txHash).toBe('0xabc')
   })
+
+  it('should format and return voucher credential when createVoucher is provided', async () => {
+    const mockCreateVoucher = vi.fn().mockResolvedValue({
+      channelId: '0102030405060708010203040506070801020304050607080102030405060708',
+      employer: 'erd1employer',
+      amount: '5000000000000000000',
+      nonce: 1,
+      signature: 'aabbccdd',
+    })
+
+    const sessionMethod = session({
+      createVoucher: mockCreateVoucher,
+    })
+
+    const challenge = Challenge.from({
+      id: 'session-challenge-1',
+      realm: 'example',
+      method: 'multiversx',
+      intent: 'session',
+      request: {
+        amount: '5',
+        currency: 'EGLD',
+        duration: '86400',
+        recipient: 'erd1recipient',
+        methodDetails: { chainId: 'D', decimals: 18 },
+      },
+    })
+
+    const serializedCredential = await sessionMethod.createCredential({
+      challenge,
+      context: { sender: 'erd1employer' },
+    })
+
+    expect(mockCreateVoucher).toHaveBeenCalledWith({
+      amount: '5',
+      duration: '86400',
+      challenge: expect.any(Object),
+      currency: 'EGLD',
+      chainId: 'D',
+      sender: 'erd1employer',
+      recipient: 'erd1recipient',
+    })
+
+    const credential = Credential.deserialize<any>(serializedCredential as string)
+    expect(credential.payload.channelId).toBe('0102030405060708010203040506070801020304050607080102030405060708')
+    expect(credential.payload.signature).toBe('aabbccdd')
+    expect(credential.payload.nonce).toBe(1)
+  })
 })
